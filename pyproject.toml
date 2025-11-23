@@ -6,7 +6,10 @@ authors = [{ name = "Natty Bumppo", email = "alex@nattybumppo.com" }]
 requires-python = ">=3.10,<3.14"
 dependencies = [
     "crewai[tools]==0.203.1",
-    "dill"
+    "dill",
+    "pytest>=7.4.0",
+    "hypothesis>=6.92.0",
+    "requests>=2.31.0",
 ]
 
 [project.scripts]
@@ -23,3 +26,6 @@ packages = ["src/agentic_code_review"]
 
 [tool.crewai]
 type = "flow"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

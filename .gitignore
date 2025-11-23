@@ -45,6 +45,15 @@ crewai_storage/
 result.dill
 flow_state.json
 
+# Testing
+.pytest_cache/
+.hypothesis/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+
 # OS
 .DS_Store
 Thumbs.db

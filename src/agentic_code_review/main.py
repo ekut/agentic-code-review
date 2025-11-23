@@ -4,6 +4,8 @@ from crewai import LLM
 from crewai.flow import Flow, listen, start, router, or_, persist
 # from typing import Literal, Optional
 from agentic_code_review.crews.code_review_crew.crew import CodeReviewCrew
+from agentic_code_review.providers import ProviderFactory
+from agentic_code_review.utils import get_github_token
 import dill
 import json
 
@@ -13,9 +15,14 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 # define the flow state
 class ReviewState(BaseModel):
-    # already dive the path to the PR diff file
-    pr_file_path: str = str(PROJECT_ROOT / "files" / "code_changes.txt")
+    # Input configuration (simplified - provider-agnostic)
+    pr_input: str = str(PROJECT_ROOT / "files" / "code_changes.txt")  # Can be file path, GitHub URL, etc.
+    
+    # PR data
     pr_content: str = "" # initialize with an empty string
+    pr_metadata: dict = {} # PR metadata (title, description, author, files_changed, url, provider)
+    
+    # Existing fields
     errors: list = [] # initialize with an empty list
     review_result: dict = {} # set the correct type
     crew_needed: bool = False # set the correct type
@@ -30,42 +37,61 @@ class PRCodeReviewFlow(Flow[ReviewState]):
     CrewAI Flow for automated code review of pull requests.
     """
     @start()
-    def read_pr_file(self):
-        """Read the PR file and determine if crew review is needed"""
+    def read_pr_data(self):
+        """
+        Read PR data using appropriate provider (file, GitHub, etc.).
+        Provider is automatically detected based on input format.
+        """
         print("🔍 Starting PR Code Review...")
         
-        # Get the file path from the state
-        pr_file_path = self.state.pr_file_path
+        # Get the input from the state
+        pr_input = self.state.pr_input
 
-        if not pr_file_path:
+        if not pr_input:
             # append some error message to the errors state variable
-            self.state.errors.append("Missing 'file_path' in state") 
+            self.state.errors.append("Missing 'pr_input' in state") 
             # save the error message in the final answer state variable
-            self.state.final_answer = f"There was no file_path set. Please set the 'file_path' in the state and try again." 
+            self.state.final_answer = "No input provided. Please set 'pr_input' with a file path or PR URL."
             print(f"❌ {self.state.final_answer}")
             return
 
-        # try reading the file
+        # try fetching PR data using the provider factory
         try:
-            with open(pr_file_path, "r") as f:
-                file_contents = f.read()
+            # Get appropriate provider (factory pattern)
+            provider = ProviderFactory.get_provider(
+                pr_input,
+                github_token=get_github_token()
+                # Future: gitlab_token=..., bitbucket_token=...
+            )
             
-            ### START CODE HERE ###
-            # save the file content in the state variable
-            self.state.pr_content = file_contents
-            ### END CODE HERE ###
+            # Fetch PR data (unified interface)
+            # Pass both url and file_path to support different providers
+            pr_data = provider.fetch_pr_data(url=pr_input, file_path=pr_input)
+            
+            # Update state with unified data
+            self.state.pr_content = pr_data.diff
+            self.state.pr_metadata = {
+                "title": pr_data.title,
+                "description": pr_data.description,
+                "author": pr_data.author,
+                "files_changed": pr_data.files_changed,
+                "url": pr_data.url,
+                "provider": pr_data.provider,
+                "pr_number": pr_data.pr_number,
+                "repository": pr_data.repository,
+            }
                
         # if there are any issues, raise an error
         except Exception as e:
-            error_message = f"There was an error reading the file at {pr_file_path}: \n{str(e)}"
+            error_message = f"Error fetching PR data: {str(e)}"
             print(f"❌ {error_message}")
             # append some error message to the errors state variable
-            self.state.errors.append("Error while reading the PR file")
+            self.state.errors.append("Error fetching PR data")
             # save the error message in the final answer state variable
             self.state.final_answer = error_message
 
 
-    @router("read_pr_file")
+    @router("read_pr_data")
     def analyze_changes(self, context):
         """Route to appropriate review type based on complexity"""
 
@@ -192,11 +218,24 @@ class PRCodeReviewFlow(Flow[ReviewState]):
 
 
 def kickoff():
+    import sys
+    import argparse
+    
+    # Parse CLI arguments
+    parser = argparse.ArgumentParser(description='Run PR code review flow')
+    parser.add_argument('--input-source', type=str, help='PR input source (file path or GitHub URL)')
+    args = parser.parse_args()
+    
+    # Prepare inputs
+    inputs = {"id": "my_code_review_flow"}
+    if args.input_source:
+        inputs["pr_input"] = args.input_source
+    
     # instantiate the flow with tracing enabled
     pr_code_review_flow = PRCodeReviewFlow(tracing=True)
     # kickoff the flow. 
     # Here you have a custom id set so that that you can use the persistence features
-    result = pr_code_review_flow.kickoff(inputs={"id": "my_code_review_flow"})
+    result = pr_code_review_flow.kickoff(inputs=inputs)
 
     # save the result of the flow - for grading purposes
     with open('../result.dill', 'wb') as f:

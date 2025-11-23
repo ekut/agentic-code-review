@@ -1,0 +1,15 @@
+{
+  "enabled": true,
+  "name": "Run All Tests",
+  "description": "Executes all tests in the tests/ directory using uv run pytest tests/",
+  "version": "1",
+  "when": {
+    "type": "userTriggered"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Execute command uv run pytest tests/"
+  },
+  "workspaceFolderName": "agentic_code_review",
+  "shortName": "run-all-tests"
+}
