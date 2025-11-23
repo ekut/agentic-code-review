@@ -377,6 +377,11 @@ class GitHubProvider(PRProvider):
             description = pr_metadata.get("body", "") or ""
             author = pr_metadata.get("user", {}).get("login", "")
             
+            # Extract commit information for versioning
+            head_sha = pr_metadata.get("head", {}).get("sha", "")
+            base_sha = pr_metadata.get("base", {}).get("sha", "")
+            updated_at = pr_metadata.get("updated_at", "")
+            
             # Fetch the diff
             logger.info(f"Fetching PR diff for {owner}/{repo}#{pr_number}")
             diff_headers = headers.copy()
@@ -415,7 +420,7 @@ class GitHubProvider(PRProvider):
             
             logger.info(f"Successfully fetched PR data for {owner}/{repo}#{pr_number}")
             
-            # Create unified PRData object
+            # Create unified PRData object with extended metadata
             pr_data = PRData(
                 diff=diff_content,
                 title=title,
@@ -425,7 +430,12 @@ class GitHubProvider(PRProvider):
                 pr_number=pr_number,
                 repository=f"{owner}/{repo}",
                 url=pr_url,
-                provider="github"
+                provider="github",
+                metadata={
+                    "head_sha": head_sha,
+                    "base_sha": base_sha,
+                    "updated_at": updated_at
+                }
             )
             
             # Cache the result

@@ -19,6 +19,7 @@ class PRData:
     repository: str
     url: str
     provider: str  # "github", "gitlab", "bitbucket", "file", etc.
+    metadata: Optional[dict] = None  # Provider-specific metadata (e.g., commit SHAs, timestamps)
 
 
 @dataclass

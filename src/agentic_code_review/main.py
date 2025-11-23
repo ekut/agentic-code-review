@@ -8,6 +8,7 @@ from agentic_code_review.providers import ProviderFactory
 from agentic_code_review.utils import get_github_token
 import dill
 import json
+import hashlib
 
 import os
 os.environ["CREWAI_TESTING"] = "true"
@@ -217,6 +218,56 @@ class PRCodeReviewFlow(Flow[ReviewState]):
         return self.state.final_answer
 
 
+def generate_flow_id(pr_input: str) -> str:
+    """
+    Generate deterministic flow ID based on PR input and content version.
+    
+    For GitHub URLs: Uses PR URL + head commit SHA for versioning
+    For local files: Uses file path + content hash
+    
+    This ensures:
+    - Same PR + same commits = same ID (cache reuse)
+    - Same PR + new commits = different ID (fresh review)
+    - Different PRs = different IDs (isolation)
+    """
+    import hashlib
+    
+    try:
+        # Try to get provider and fetch metadata
+        provider = ProviderFactory.get_provider(pr_input, github_token=get_github_token())
+        
+        if provider.can_handle(pr_input) and 'github.com' in pr_input.lower():
+            # For GitHub: parse URL to get components
+            owner, repo, pr_number = provider.parse_pr_url(pr_input)
+            
+            # Fetch only metadata (lightweight call) to get head_sha
+            pr_data = provider.fetch_pr_data(url=pr_input)
+            head_sha = pr_data.metadata.get('head_sha', '')[:8] if pr_data.metadata else ''
+            
+            # Generate ID: pr_owner_repo_number_commitsha
+            if head_sha:
+                return f"pr_{owner}_{repo}_{pr_number}_{head_sha}"
+            else:
+                # Fallback if no SHA available
+                return f"pr_{owner}_{repo}_{pr_number}"
+        else:
+            # For local files: use file path + content hash
+            file_path = Path(pr_input)
+            if file_path.exists():
+                content_hash = hashlib.md5(file_path.read_bytes()).hexdigest()[:8]
+                return f"pr_file_{file_path.stem}_{content_hash}"
+            else:
+                # Fallback for unknown inputs
+                input_hash = hashlib.md5(pr_input.encode()).hexdigest()[:8]
+                return f"pr_{input_hash}"
+    
+    except Exception as e:
+        # If anything fails, use hash of input as fallback
+        print(f"Warning: Could not generate versioned flow ID: {e}")
+        input_hash = hashlib.md5(pr_input.encode()).hexdigest()[:8]
+        return f"pr_{input_hash}"
+
+
 def kickoff():
     import sys
     import argparse
@@ -226,10 +277,18 @@ def kickoff():
     parser.add_argument('--input-source', type=str, help='PR input source (file path or GitHub URL)')
     args = parser.parse_args()
     
+    # Determine PR input
+    pr_input = args.input_source if args.input_source else str(PROJECT_ROOT / "files" / "code_changes.txt")
+    
+    # Generate deterministic flow ID based on PR input and version
+    flow_id = generate_flow_id(pr_input)
+    print(f"🔑 Flow ID: {flow_id}")
+    
     # Prepare inputs
-    inputs = {"id": "my_code_review_flow"}
-    if args.input_source:
-        inputs["pr_input"] = args.input_source
+    inputs = {
+        "id": flow_id,
+        "pr_input": pr_input
+    }
     
     # instantiate the flow with tracing enabled
     pr_code_review_flow = PRCodeReviewFlow(tracing=True)
