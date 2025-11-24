@@ -52,6 +52,13 @@ DLAI_SERPER_BASE_URL=https://google.serper.dev
 
 # Required for GitHub integration: GitHub Personal Access Token
 GITHUB_TOKEN=your_github_token_here
+
+# Optional: LLM Model Configuration
+# Configure which OpenAI model each agent uses for code review
+# If not set, CrewAI will use its default model selection
+SENIOR_DEVELOPER_MODEL=gpt-4o-mini
+SECURITY_ENGINEER_MODEL=gpt-4o-mini
+TECH_LEAD_MODEL=gpt-4o-mini
 ```
 
 You can copy `.env.example` to `.env` and fill in your actual values:
@@ -59,74 +66,53 @@ You can copy `.env.example` to `.env` and fill in your actual values:
 cp .env.example .env
 ```
 
+### Model Configuration (Optional)
+
+Configure different OpenAI models for each agent to optimize cost and performance:
+
+| Environment Variable | Purpose | Default |
+|---------------------|---------|---------|
+| `SENIOR_DEVELOPER_MODEL` | Code quality analysis | CrewAI default |
+| `SECURITY_ENGINEER_MODEL` | Security vulnerability detection | CrewAI default |
+| `TECH_LEAD_MODEL` | Final decision making | CrewAI default |
+
+**Available models:** `gpt-4o` (most capable), `gpt-4o-mini` (recommended), `gpt-4-turbo`, `gpt-3.5-turbo` (most cost-effective)
+
+🏗️ For cost optimization strategies and technical details, see [Model Configuration Architecture](docs/ARCHITECTURE.md#model-configuration-architecture).
+
 ### GitHub Token Setup
 
-To use the GitHub PR integration feature, you need to create a Personal Access Token:
+Create a Personal Access Token for GitHub integration:
 
-1. Go to [GitHub Settings > Developer settings > Personal access tokens > Tokens (classic)](https://github.com/settings/tokens)
-2. Click "Generate new token" → "Generate new token (classic)"
-3. Give your token a descriptive name (e.g., "Agentic Code Review")
-4. Select the required scopes:
-   - For **private repositories**: Select `repo` (Full control of private repositories)
-   - For **public repositories only**: Select `public_repo` (Access public repositories)
-5. Click "Generate token"
-6. Copy the token immediately (you won't be able to see it again)
-7. Add the token to your `.env` file as `GITHUB_TOKEN=ghp_your_token_here`
+1. Go to [GitHub Settings → Tokens](https://github.com/settings/tokens)
+2. Generate new token (classic)
+3. Select scope: `repo` (private repos) or `public_repo` (public only)
+4. Copy token to `.env` as `GITHUB_TOKEN=ghp_...`
 
-**Security Note**: Never commit your `.env` file or expose your tokens. The `.gitignore` file is configured to exclude `.env` files.
+⚠️ **Security:** Never commit `.env` files. The `.gitignore` is configured to exclude them.
 
 ## Usage
 
 ### Review a GitHub Pull Request
 
-The system automatically detects GitHub URLs and fetches PR data via the GitHub API:
-
 ```bash
-# Using a GitHub PR URL (HTTPS format)
+# Review a GitHub PR
 uv run kickoff --pr-input "https://github.com/owner/repo/pull/123"
 
-# Using a GitHub API URL format
-uv run kickoff --pr-input "https://api.github.com/repos/owner/repo/pulls/123"
-```
-
-**Example with Real Repository:**
-```bash
-# Review a PR from a public repository
+# Example with real repository
 uv run kickoff --pr-input "https://github.com/crewAIInc/crewAI/pull/1234"
 ```
 
-**What Happens:**
-1. System detects GitHub URL format
-2. Authenticates with GitHub API using `GITHUB_TOKEN`
-3. Fetches PR metadata (title, description, author, files changed)
-4. Fetches PR diff content
-5. Caches the data for 5 minutes
-6. Routes to appropriate review flow (simple or complex)
-7. Returns review decision with recommendations
+The system automatically detects GitHub URLs, authenticates, fetches PR data, caches it (5 min), and routes to the appropriate review flow.
 
 ### Review a Local Diff File
 
-For backward compatibility, you can still use local diff files:
-
 ```bash
-# Using a local file path
+# Review a local file (backward compatibility)
 uv run kickoff --pr-input "files/code_changes.txt"
-
-# Using an absolute path
-uv run kickoff --pr-input "/path/to/your/diff.txt"
 ```
 
-**Example:**
-```bash
-# Review a local diff file
-uv run kickoff --pr-input "files/code_changes_simple.txt"
-```
-
-**What Happens:**
-1. System detects file path format
-2. Reads diff content from local file
-3. Routes to appropriate review flow
-4. Returns review decision
+🏗️ For detailed data flow and processing steps, see [Data Flow](docs/ARCHITECTURE.md#data-flow).
 
 ### Programmatic Usage
 
@@ -278,70 +264,20 @@ The system includes advanced features for reliability and performance:
 
 ## Examples
 
-### Example 1: Review a Simple PR
+### Basic Usage
 
 ```bash
-# Review a small PR with a few file changes
+# Simple PR (< 5 files, < 100 lines) → Quick review
 uv run kickoff --pr-input "https://github.com/owner/repo/pull/123"
-```
 
-**Expected Output:**
-```
-🔍 Starting PR Code Review...
-✓ Fetched PR data from GitHub
-✓ Detected SIMPLE change (3 files, 45 lines)
-✓ Running lightweight review...
-✓ Review complete
-
-Decision: APPROVE
-Reasoning: Code changes are minimal and follow best practices. No security concerns identified.
-```
-
-### Example 2: Review a Complex PR
-
-```bash
-# Review a large PR with many changes
+# Complex PR (many files/lines) → Full crew analysis
 uv run kickoff --pr-input "https://github.com/owner/repo/pull/456"
-```
 
-**Expected Output:**
-```
-🔍 Starting PR Code Review...
-✓ Fetched PR data from GitHub
-✓ Detected COMPLEX change (15 files, 500 lines)
-✓ Assembling review crew...
-✓ Senior Developer analyzing code quality...
-✓ Security Engineer checking for vulnerabilities...
-✓ Tech Lead synthesizing findings...
-✓ Review complete
-
-Decision: REQUEST_CHANGES
-Reasoning: Found potential SQL injection vulnerability in database query. Recommend using parameterized queries.
-Recommendations:
-- Fix SQL injection in user_service.py line 45
-- Add input validation for user-provided data
-- Consider adding integration tests for database operations
-```
-
-### Example 3: Review Local File
-
-```bash
-# Review a local diff file (backward compatibility)
+# Local file (backward compatibility)
 uv run kickoff --pr-input "files/code_changes.txt"
 ```
 
-**Expected Output:**
-```
-🔍 Starting PR Code Review...
-✓ Read PR data from local file
-✓ Detected SIMPLE change
-✓ Running lightweight review...
-✓ Review complete
-
-Decision: APPROVE
-```
-
-### Example 4: Programmatic Usage
+### Programmatic Usage
 
 ```python
 from agentic_code_review.main import PRCodeReviewFlow
@@ -363,7 +299,7 @@ for pr_url in prs:
     print("-" * 80)
 ```
 
-### Example 5: Handling Errors
+### Error Handling
 
 ```python
 from agentic_code_review.main import PRCodeReviewFlow
@@ -392,52 +328,23 @@ except RateLimitError as e:
 
 ## Best Practices
 
-### Security
+**Security:** Never commit tokens • Use minimal scopes • Rotate regularly • Monitor usage
 
-1. **Never commit tokens**: Keep `.env` file out of version control
-2. **Use minimal scopes**: Only grant necessary permissions to tokens
-3. **Rotate tokens regularly**: Generate new tokens periodically
-4. **Use environment variables**: Never hardcode tokens in code
-5. **Monitor token usage**: Check for unauthorized access
+**Performance:** Leverage caching • Batch reviews • Monitor rate limits • Use authentication
 
-### Performance
+**Reliability:** Handle errors gracefully • Let system retry failures • Monitor logs • Test with mocks
 
-1. **Use caching**: Let the system cache PR data for repeated reviews
-2. **Batch reviews**: Review multiple PRs in sequence to leverage caching
-3. **Monitor rate limits**: Check rate limit status before bulk operations
-4. **Use authentication**: Authenticated requests have higher rate limits
+**Development:** Follow provider pattern • Write tests • Document changes • Maintain backward compatibility
 
-### Reliability
-
-1. **Handle errors gracefully**: Catch and handle provider-specific errors
-2. **Implement retries**: Let the system retry transient failures
-3. **Monitor logs**: Check logs for warnings and errors
-4. **Test with mocks**: Use `CREWAI_TESTING=true` for development
-
-### Maintainability
-
-1. **Follow provider pattern**: Use the provider abstraction for new platforms
-2. **Write tests**: Add unit and property-based tests for new features
-3. **Document changes**: Update README and docstrings
-4. **Keep backward compatibility**: Don't break existing file-based workflows
+🤝 For detailed guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Contributing
 
-Contributions are welcome! The system is designed to be easily extensible.
+Contributions welcome! The system uses a pluggable provider pattern for easy extensibility.
 
-### Quick Start for Contributors
+**Quick Start:** Follow existing patterns • Add tests • Update docs • Maintain backward compatibility
 
-1. Follow the existing code structure and patterns
-2. Add tests for new functionality (unit tests and property-based tests)
-3. Update documentation
-4. Ensure backward compatibility
-5. Run the full test suite before submitting
-
-### Adding New Providers
-
-The system uses a pluggable provider pattern that makes it easy to add support for new platforms (GitLab, Bitbucket, AWS CodeCommit, etc.).
-
-🤝 **For detailed instructions on adding new providers, testing requirements, and code review checklist, see [CONTRIBUTING.md](CONTRIBUTING.md)**
+🤝 For detailed guidelines on adding providers, testing, and code review, see [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Documentation
 

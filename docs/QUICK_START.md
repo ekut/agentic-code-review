@@ -24,17 +24,17 @@ Edit `.env` and add your API keys:
 # Required
 OPENAI_API_KEY=sk-...
 SERPER_API_KEY=...
-
-# For GitHub integration
 GITHUB_TOKEN=ghp_...
+
+# Optional: Per-agent model configuration (defaults to CrewAI's choice)
+SENIOR_DEVELOPER_MODEL=gpt-4o-mini
+SECURITY_ENGINEER_MODEL=gpt-4o-mini
+TECH_LEAD_MODEL=gpt-4o-mini
 ```
 
-### Get GitHub Token
+**Get GitHub Token:** Go to https://github.com/settings/tokens → Generate new token (classic) → Select `repo` scope → Copy to `.env`
 
-1. Go to https://github.com/settings/tokens
-2. Click "Generate new token (classic)"
-3. Select scope: `repo` (private repos) or `public_repo` (public only)
-4. Copy token to `.env`
+📖 For detailed configuration options, see [Configuration](../README.md#configuration) in the main README.
 
 ## Usage
 

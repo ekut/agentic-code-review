@@ -176,18 +176,23 @@ class ReviewState(BaseModel):
    - Role: Code quality expert
    - Goal: Evaluate maintainability, style, best practices
    - Tools: None (LLM-based analysis)
+   - Model: Configurable via `SENIOR_DEVELOPER_MODEL` env var
 
 2. **Security Engineer**
    - Role: Security specialist
    - Goal: Identify vulnerabilities and risks
    - Tools: SerperDevTool (web research)
+   - Model: Configurable via `SECURITY_ENGINEER_MODEL` env var
 
 3. **Tech Lead**
    - Role: Decision maker
    - Goal: Synthesize findings and make final call
    - Tools: None (synthesis)
+   - Model: Configurable via `TECH_LEAD_MODEL` env var
 
 **Process**: Sequential execution with memory enabled.
+
+**Model Configuration**: Each agent can use a different OpenAI model, allowing you to optimize cost and performance. If not configured, CrewAI uses its default model selection.
 
 ### 4. Utility Layer (`utils.py`)
 
@@ -196,7 +201,13 @@ class ReviewState(BaseModel):
 **Functions**:
 - `get_github_token()`: Load token from environment
 - `create_pr_cache_key()`: Generate cache keys
+- `get_agent_model(agent_name)`: Get configured LLM model for an agent
+- `get_senior_developer_model()`: Get model for Senior Developer agent
+- `get_security_engineer_model()`: Get model for Security Engineer agent
+- `get_tech_lead_model()`: Get model for Tech Lead agent
 - Environment variable management
+
+**Model Configuration**: The utility layer provides functions to load agent-specific LLM models from environment variables. If a model is not configured or is empty/whitespace, the functions return `None`, allowing CrewAI to use its default model selection.
 
 ## Data Flow
 
@@ -433,6 +444,82 @@ def create_pr_cache_key(provider: str, owner: str, repo: str, pr_number: int) ->
 - **Invalidation**: Automatic expiration
 - **Benefits**: Reduces API calls, improves performance
 
+## Model Configuration Architecture
+
+### Design Philosophy
+
+The model configuration system follows these principles:
+
+1. **Optional Configuration**: All model settings are optional; the system works without any configuration
+2. **Graceful Fallback**: Invalid or missing configurations fall back to CrewAI defaults
+3. **Per-Agent Control**: Each agent can use a different model independently
+4. **No Breaking Changes**: Backward compatible with existing deployments
+
+### Configuration Flow
+
+```
+Environment Variables (.env)
+    ↓
+utils.py (get_agent_model functions)
+    ↓
+crew.py (agent initialization)
+    ↓
+CrewAI Agent (with or without llm parameter)
+```
+
+### Implementation Details
+
+**Agent Initialization Pattern:**
+```python
+@agent
+def senior_developer(self) -> Agent:
+    model = get_senior_developer_model()
+    agent_config = {
+        "config": self.agents_config["senior_developer"],
+    }
+    if model:
+        agent_config["llm"] = model
+    return Agent(**agent_config)
+```
+
+**Key Behaviors:**
+- If model is configured and valid: Pass `llm` parameter to Agent
+- If model is `None`, empty, or whitespace: Omit `llm` parameter
+- CrewAI uses its default model when `llm` parameter is omitted
+
+### Validation Rules
+
+The `get_agent_model()` function validates inputs:
+- Returns `None` for missing environment variables
+- Returns `None` for empty strings (`""`)
+- Returns `None` for whitespace-only strings (`"   "`)
+- Returns trimmed model name for valid inputs
+
+### Cost Optimization Strategies
+
+Different models can be assigned based on agent complexity:
+
+**Example 1: Cost-Optimized**
+```bash
+SENIOR_DEVELOPER_MODEL=gpt-3.5-turbo    # Fast, cheap for code quality
+SECURITY_ENGINEER_MODEL=gpt-4o          # Powerful for security analysis
+TECH_LEAD_MODEL=gpt-4o-mini             # Balanced for decision making
+```
+
+**Example 2: Performance-Optimized**
+```bash
+SENIOR_DEVELOPER_MODEL=gpt-4o           # Best quality analysis
+SECURITY_ENGINEER_MODEL=gpt-4o          # Best security detection
+TECH_LEAD_MODEL=gpt-4o                  # Best decision making
+```
+
+**Example 3: Balanced (Recommended)**
+```bash
+SENIOR_DEVELOPER_MODEL=gpt-4o-mini
+SECURITY_ENGINEER_MODEL=gpt-4o-mini
+TECH_LEAD_MODEL=gpt-4o-mini
+```
+
 ## Extensibility
 
 ### Adding New Providers
@@ -454,6 +541,7 @@ Potential areas for extension:
 4. **Custom Agents**: Domain-specific review agents
 5. **Output Formats**: JSON, Markdown, HTML reports
 6. **Integration**: CI/CD pipeline integration
+7. **Advanced Model Configuration**: Per-task model selection, dynamic model routing based on complexity
 
 ### Design Patterns Used
 

@@ -5,7 +5,12 @@
 ```
 src/agentic_code_review/
 ├── main.py                    # Flow definition and entry point
-├── utils.py                   # Helper functions (env loading, API keys)
+├── utils.py                   # Helper functions (env loading, API keys, model config)
+├── providers/                 # Provider abstraction layer
+│   ├── __init__.py           # Provider factory
+│   ├── base.py               # Abstract base class
+│   ├── file_provider.py      # Local file provider
+│   └── github_provider.py    # GitHub API provider
 └── crews/
     └── code_review_crew/
         ├── crew.py            # Crew definition with agents and tasks
@@ -33,6 +38,7 @@ files/                         # Input PR diff files
 - Tasks defined with `@task` decorator, reference YAML configs
 - Sequential process execution
 - Async task execution enabled for parallel agent work
+- Configurable LLM models per agent via environment variables
 
 ### Configuration Pattern
 - Agent roles/goals/backstory in `agents.yaml`
@@ -52,6 +58,7 @@ files/                         # Input PR diff files
 - All `__init__.py` files are empty (package markers only)
 - Flow state persisted to `result.dill` and `flow_state.json`
 - Project root calculated as `Path(__file__).parent.parent.parent`
-- LLM model: `gpt-4o-mini` for all agents and decisions
+- LLM models: Configurable per agent via environment variables (defaults to CrewAI's default if not set)
 - Memory enabled for crew to maintain context
 - Verbose mode enabled for debugging
+- Provider pattern for extensible data source support (GitHub, local files, future: GitLab, Bitbucket)

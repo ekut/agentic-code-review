@@ -15,6 +15,7 @@
 - `crewai[tools]` - Agent framework with tool support
 - `crewai_tools` - SerperDevTool, ScrapeWebsiteTool for web research
 - `python-dotenv` - Environment variable management
+- `pydantic` - Data validation and structured outputs
 
 ## Common Commands
 
@@ -38,5 +39,11 @@ python -m agentic_code_review.main
 Required in `.env` file:
 - `OPENAI_API_KEY` - For LLM calls
 - `SERPER_API_KEY` - For web search functionality
+- `GITHUB_TOKEN` - For GitHub PR integration
 - `DLAI_SERPER_BASE_URL` - Optional, defaults to https://google.serper.dev
 - `CREWAI_TESTING` - Set to "true" in code for testing mode
+
+Optional model configuration (per-agent LLM selection):
+- `SENIOR_DEVELOPER_MODEL` - Model for Senior Developer agent (default: CrewAI default)
+- `SECURITY_ENGINEER_MODEL` - Model for Security Engineer agent (default: CrewAI default)
+- `TECH_LEAD_MODEL` - Model for Tech Lead agent (default: CrewAI default)

@@ -8,3 +8,12 @@ The system uses a multi-agent approach with three specialized roles:
 - **Tech Lead**: Synthesizes findings and makes final approval decisions
 
 The flow intelligently routes simple changes through a lightweight review while complex changes trigger a full crew analysis with web research capabilities for security best practices.
+
+## Key Features
+
+- **GitHub Integration**: Fetch PR data directly from GitHub repositories via API
+- **Local File Support**: Backward compatible with local diff file input
+- **Configurable LLM Models**: Each agent can use a different OpenAI model for cost/performance optimization
+- **Pluggable Provider Architecture**: Extensible design supports multiple platforms (GitHub, local files, future: GitLab, Bitbucket)
+- **Intelligent Routing**: Automatic detection of simple vs complex changes
+- **Caching & Rate Limiting**: Built-in optimization for API efficiency
