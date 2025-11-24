@@ -121,4 +121,94 @@ def get_tech_lead_model() -> str | None:
         Model name if configured and valid, None otherwise
     """
     return get_agent_model("tech_lead")
+
+# Memory Compatibility Registry
+# Models in this list are known to be incompatible with CrewAI's memory feature.
+# This list is maintained by developers as incompatibilities are discovered.
+# 
+# To add a new incompatible model pattern:
+# 1. Add the pattern (or substring) to the MEMORY_INCOMPATIBLE_MODELS list below
+# 2. The pattern matching is case-insensitive
+# 3. Any model name containing the pattern will be marked as incompatible
+#
+# Known incompatible patterns:
+# - "codex": All models containing "codex" (e.g., gpt-5-codex, gpt-5.1-codex-mini)
+MEMORY_INCOMPATIBLE_MODELS = [
+    "codex",  # All models containing "codex" (e.g., gpt-5-codex, gpt-5.1-codex-mini)
+]
+
+def is_model_memory_compatible(model_name: str | None) -> bool:
+    """
+    Check if a model is compatible with CrewAI memory.
+    
+    Args:
+        model_name: The OpenAI model name, or None if using CrewAI default
+    
+    Returns:
+        True if the model is compatible with CrewAI memory, False otherwise
+        
+    Logic:
+        - None or empty string → True (CrewAI default assumed compatible)
+        - Model name contains any pattern from MEMORY_INCOMPATIBLE_MODELS → False
+        - Otherwise → True (unknown models assumed compatible)
+        
+    Example:
+        >>> is_model_memory_compatible("gpt-4o-mini")
+        True
+        >>> is_model_memory_compatible("gpt-5-codex")
+        False
+        >>> is_model_memory_compatible(None)
+        True
+    """
+    # None or empty string means using CrewAI default, which is assumed compatible
+    if model_name is None or not model_name.strip():
+        return True
+    
+    # Check if model name contains any incompatible pattern (case-insensitive)
+    model_lower = model_name.lower()
+    for pattern in MEMORY_INCOMPATIBLE_MODELS:
+        if pattern.lower() in model_lower:
+            return False
+    
+    # Unknown models are assumed compatible
+    return True
+
+def check_crew_memory_compatibility() -> tuple[bool, list[str]]:
+    """
+    Check if all agents in the crew use memory-compatible models.
+    
+    Returns:
+        Tuple of (is_compatible, incompatible_models)
+        - is_compatible: True if all agents use compatible models
+        - incompatible_models: List of incompatible model names found
+        
+    Logic:
+        - Get models for all three agents (senior_developer, security_engineer, tech_lead)
+        - Check each model for compatibility
+        - Return False if any model is incompatible
+        - Return list of incompatible models for logging
+        
+    Example:
+        >>> check_crew_memory_compatibility()
+        (True, [])
+        >>> # With SENIOR_DEVELOPER_MODEL=gpt-5-codex
+        >>> check_crew_memory_compatibility()
+        (False, ['gpt-5-codex'])
+    """
+    # Get models for all agents
+    models = [
+        get_senior_developer_model(),
+        get_security_engineer_model(),
+        get_tech_lead_model(),
+    ]
+    
+    # Check each model for compatibility
+    incompatible_models = []
+    for model in models:
+        if model is not None and not is_model_memory_compatible(model):
+            incompatible_models.append(model)
+    
+    # Return compatibility status and list of incompatible models
+    is_compatible = len(incompatible_models) == 0
+    return is_compatible, incompatible_models
     

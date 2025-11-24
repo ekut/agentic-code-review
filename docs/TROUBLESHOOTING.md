@@ -10,6 +10,7 @@ This guide helps you diagnose and fix common issues with Agentic Code Review.
 - [Rate Limiting Issues](#rate-limiting-issues)
 - [Network Issues](#network-issues)
 - [Performance Issues](#performance-issues)
+- [CrewAI Memory Compatibility](#crewai-memory-compatibility)
 - [Testing Issues](#testing-issues)
 
 ## Installation Issues
@@ -367,6 +368,222 @@ High OpenAI API costs.
 2. Monitor token usage in output
 3. Consider using cheaper models for simple reviews
 4. Batch similar PRs together
+
+## CrewAI Memory Compatibility
+
+### Understanding Memory Compatibility
+
+CrewAI's memory feature (which enables agents to store and retrieve information across interactions) is not compatible with all OpenAI models. The system automatically detects incompatible models and disables memory when necessary to prevent runtime errors.
+
+**What is CrewAI Memory?**
+- Short-term memory: Maintains context within a single review session
+- Entity memory: Tracks important entities (files, functions, patterns) across tasks
+- Long-term memory: Stores learnings across multiple reviews (currently disabled)
+
+**Why Memory Matters**:
+- Improves review quality by maintaining context
+- Helps agents remember patterns and decisions
+- Enables more coherent multi-agent collaboration
+
+### Known Incompatible Models
+
+The following models are **incompatible** with CrewAI memory:
+
+**Codex Models** (all variants):
+- `gpt-5-codex`
+- `gpt-5.1-codex`
+- `gpt-5.1-codex-mini`
+- Any model containing "codex" in the name (case-insensitive)
+
+**Compatible Models** (partial list):
+- `gpt-4o`
+- `gpt-4o-mini`
+- `gpt-4-turbo`
+- `gpt-3.5-turbo`
+- Most standard OpenAI models
+
+### Automatic Memory Management
+
+The system automatically manages memory based on your model configuration:
+
+**All agents use compatible models** → Memory enabled ✅
+```bash
+# .env file
+SENIOR_DEVELOPER_MODEL=gpt-4o
+SECURITY_ENGINEER_MODEL=gpt-4o-mini
+TECH_LEAD_MODEL=gpt-4o
+# Result: Memory enabled
+```
+
+**Any agent uses incompatible model** → Memory disabled ⚠️
+```bash
+# .env file
+SENIOR_DEVELOPER_MODEL=gpt-5-codex
+SECURITY_ENGINEER_MODEL=gpt-4o
+TECH_LEAD_MODEL=gpt-4o
+# Result: Memory disabled (due to gpt-5-codex)
+```
+
+**No models configured** → Memory enabled (uses CrewAI defaults) ✅
+```bash
+# .env file
+# No model configuration
+# Result: Memory enabled with default models
+```
+
+### Problem: Memory disabled warning
+
+**Symptoms**:
+```
+WARNING: CrewAI memory disabled: The following models are incompatible with 
+CrewAI memory: gpt-5-codex. The crew will function normally without memory 
+features. See docs/TROUBLESHOOTING.md for more information.
+```
+
+**What This Means**:
+- One or more agents are using models incompatible with CrewAI memory
+- Memory has been automatically disabled to prevent errors
+- The crew will still function normally, just without memory features
+- Review quality may be slightly reduced without context retention
+
+**Solution Options**:
+
+**Option 1: Switch to compatible models** (Recommended)
+```bash
+# Edit .env file
+# Replace incompatible models with compatible ones
+SENIOR_DEVELOPER_MODEL=gpt-4o
+SECURITY_ENGINEER_MODEL=gpt-4o-mini
+TECH_LEAD_MODEL=gpt-4o
+```
+
+**Option 2: Continue without memory**
+- No action needed
+- Crew will work normally
+- Slightly reduced context retention
+- May be acceptable for simple reviews
+
+**Option 3: Remove model configuration**
+```bash
+# Edit .env file
+# Comment out or remove model settings to use defaults
+# SENIOR_DEVELOPER_MODEL=gpt-5-codex
+# SECURITY_ENGINEER_MODEL=gpt-4o
+# TECH_LEAD_MODEL=gpt-4o
+```
+
+### Checking Your Configuration
+
+**View current model configuration**:
+```bash
+# Check .env file
+grep "_MODEL" .env
+
+# Example output:
+# SENIOR_DEVELOPER_MODEL=gpt-4o
+# SECURITY_ENGINEER_MODEL=gpt-5-codex
+# TECH_LEAD_MODEL=gpt-4o-mini
+```
+
+**Identify incompatible models**:
+Look for models containing "codex" in the name (case-insensitive).
+
+**Test configuration**:
+```bash
+# Run a simple review to see if memory is enabled
+uv run kickoff
+
+# Check logs for memory status
+# If you see the warning, memory is disabled
+```
+
+### Impact of Disabled Memory
+
+**What Still Works**:
+- All review functionality
+- Agent collaboration
+- Task execution
+- Output generation
+- Security analysis
+- Code quality checks
+
+**What's Affected**:
+- Context retention between tasks (reduced)
+- Entity tracking across agents (limited)
+- Pattern recognition across reviews (none)
+- Agent learning from previous decisions (none)
+
+**Performance Impact**:
+- Minimal impact on single reviews
+- More noticeable on complex, multi-file PRs
+- Agents may ask similar questions multiple times
+- Slightly less coherent cross-agent collaboration
+
+### Frequently Asked Questions
+
+**Q: Why isn't there a public list of compatible models?**
+A: OpenAI and CrewAI don't publish official compatibility matrices. We maintain this list based on observed behavior and testing.
+
+**Q: Can I force memory to be enabled with incompatible models?**
+A: No. This would cause runtime errors when CrewAI attempts to save to memory. The automatic detection protects against crashes.
+
+**Q: Will more models become incompatible in the future?**
+A: Possibly. We update the compatibility registry as new incompatibilities are discovered. Check this documentation for the latest list.
+
+**Q: Can I use different models for different agents?**
+A: Yes! You can mix compatible models. Memory is only disabled if ANY agent uses an incompatible model.
+
+**Q: How do I know if memory is currently enabled?**
+A: Check the logs during crew initialization. If you see the warning message, memory is disabled. No warning = memory enabled.
+
+**Q: Does this affect the GitHub integration?**
+A: No. Memory compatibility is independent of the data source (GitHub, local files, etc.).
+
+**Q: What if I discover a new incompatible model?**
+A: Please report it! Open an issue with the model name and error details so we can update the registry.
+
+### Updating the Compatibility Registry
+
+**For Developers**:
+
+If you discover a new incompatible model, update the registry in `src/agentic_code_review/utils.py`:
+
+```python
+# Memory Compatibility Registry
+MEMORY_INCOMPATIBLE_MODELS = [
+    "codex",  # All models containing "codex"
+    # Add new patterns here as discovered
+]
+```
+
+The system uses pattern matching, so:
+- `"codex"` matches: `gpt-5-codex`, `gpt-5.1-codex-mini`, `CODEX`, etc.
+- Matching is case-insensitive
+- Partial matches work (substring search)
+
+**Testing New Patterns**:
+```python
+from agentic_code_review.utils import is_model_memory_compatible
+
+# Test a model
+print(is_model_memory_compatible("gpt-5-codex"))  # False
+print(is_model_memory_compatible("gpt-4o"))       # True
+```
+
+### Best Practices
+
+1. **Use compatible models when possible** for best review quality
+2. **Monitor logs** for memory compatibility warnings
+3. **Test configuration changes** before production use
+4. **Document model choices** in your team's setup guide
+5. **Keep this documentation updated** as you discover new incompatibilities
+6. **Report issues** if you encounter unexpected behavior
+
+### Related Documentation
+
+- [Model Configuration Guide](../README.md#model-configuration)
+- [Architecture Overview](ARCHITECTURE.md)
+- [Environment Variables](../README.md#environment-variables)
 
 ## Testing Issues
 

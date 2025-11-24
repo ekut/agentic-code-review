@@ -11,7 +11,8 @@ from agentic_code_review.utils import (
     get_openai_api_key,
     get_senior_developer_model,
     get_security_engineer_model,
-    get_tech_lead_model
+    get_tech_lead_model,
+    check_crew_memory_compatibility
 )
 # import the guardrails
 from agentic_code_review.crews.code_review_crew.guardrails.guardrails import security_review_output_guardrail
@@ -130,7 +131,23 @@ class CodeReviewCrew:
     @crew
     def crew(self) -> Crew:
         """Creates the CodeReviewCrew crew"""
-        from crewai.memory import ShortTermMemory, EntityMemory
+        import logging
+        
+        # Check if all agents use memory-compatible models
+        memory_compatible, incompatible_models = check_crew_memory_compatibility()
+        
+        # Determine memory setting
+        enable_memory = memory_compatible
+        
+        # Log warning if memory is disabled due to incompatibility
+        if not memory_compatible:
+            # Deduplicate model names
+            models_str = ", ".join(set(incompatible_models))
+            logging.warning(
+                f"CrewAI memory disabled: The following models are incompatible with "
+                f"CrewAI memory: {models_str}. The crew will function normally without "
+                f"memory features. See docs/TROUBLESHOOTING.md for more information."
+            )
         
         return Crew(
             agents=self.agents,  # Automatically created by the @agent decorator
@@ -138,10 +155,5 @@ class CodeReviewCrew:
             # set the process to sequential
             process=Process.sequential,
             verbose=True,
-            memory=False,
-            # Disabled due to tools[0].name error with instructor+litellm
-            # memory=True,
-            # short_term_memory=ShortTermMemory(),
-            # entity_memory=EntityMemory(),
-            # long_term_memory=None,  
+            memory=enable_memory,
         )
