@@ -68,4 +68,57 @@ def create_pr_cache_key(provider: str, owner: str, repo: str, pr_number: int) ->
         'github:octocat:Hello-World:123'
     """
     return f"{provider}:{owner}:{repo}:{pr_number}"
+
+def get_agent_model(agent_name: str) -> str | None:
+    """
+    Get configured LLM model for a specific agent.
+    
+    Args:
+        agent_name: Name of the agent (e.g., "senior_developer", "security_engineer", "tech_lead")
+    
+    Returns:
+        Model name if configured and valid, None otherwise
+        
+    Example:
+        >>> get_agent_model("senior_developer")
+        'gpt-4o-mini'
+        >>> get_agent_model("tech_lead")  # Not configured
+        None
+    """
+    load_env()
+    env_var_name = f"{agent_name.upper()}_MODEL"
+    model = os.getenv(env_var_name)
+    
+    # Return None for missing, empty, or whitespace-only values
+    if model is None or not model.strip():
+        return None
+    
+    return model.strip()
+
+def get_senior_developer_model() -> str | None:
+    """
+    Get model for Senior Developer agent from SENIOR_DEVELOPER_MODEL env var.
+    
+    Returns:
+        Model name if configured and valid, None otherwise
+    """
+    return get_agent_model("senior_developer")
+
+def get_security_engineer_model() -> str | None:
+    """
+    Get model for Security Engineer agent from SECURITY_ENGINEER_MODEL env var.
+    
+    Returns:
+        Model name if configured and valid, None otherwise
+    """
+    return get_agent_model("security_engineer")
+
+def get_tech_lead_model() -> str | None:
+    """
+    Get model for Tech Lead agent from TECH_LEAD_MODEL env var.
+    
+    Returns:
+        Model name if configured and valid, None otherwise
+    """
+    return get_agent_model("tech_lead")
     

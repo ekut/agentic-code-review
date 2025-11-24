@@ -296,10 +296,10 @@ def kickoff():
     # Here you have a custom id set so that that you can use the persistence features
     result = pr_code_review_flow.kickoff(inputs=inputs)
 
-    # save the result of the flow - for grading purposes
+    # save the result of the flow
     with open('../result.dill', 'wb') as f:
         dill.dump(result, f)
-    # Save the flow state as JSON - for grading purposes
+    # Save the flow state as JSON
     with open('../flow_state.json', 'w') as f:
         json.dump(pr_code_review_flow.state.model_dump(), f, indent=2)
 

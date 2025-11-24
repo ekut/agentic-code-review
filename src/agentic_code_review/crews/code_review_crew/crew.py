@@ -6,7 +6,13 @@ from crewai_tools import (
     ScrapeWebsiteTool,
 )
 from pydantic import BaseModel
-from agentic_code_review.utils import get_serper_api_key, get_openai_api_key
+from agentic_code_review.utils import (
+    get_serper_api_key, 
+    get_openai_api_key,
+    get_senior_developer_model,
+    get_security_engineer_model,
+    get_tech_lead_model
+)
 # import the guardrails
 from agentic_code_review.crews.code_review_crew.guardrails.guardrails import security_review_output_guardrail
 
@@ -17,11 +23,14 @@ os.environ["SERPER_API_KEY"] = get_serper_api_key()
 class CodeReviewCrew:
     """CodeReview crew"""
     @agent
-    def senior_developer(self) -> Agent:       
-        return Agent(
-            config=self.agents_config["senior_developer"],
-            llm="gpt-4o-mini",
-        )
+    def senior_developer(self) -> Agent:
+        model = get_senior_developer_model()
+        agent_config = {
+            "config": self.agents_config["senior_developer"],
+        }
+        if model:
+            agent_config["llm"] = model
+        return Agent(**agent_config)
 
     @agent
     def security_engineer(self) -> Agent:
@@ -30,23 +39,29 @@ class CodeReviewCrew:
         # Get base_url from environment or use default
         base_url = os.getenv("DLAI_SERPER_BASE_URL", "https://google.serper.dev")
         
-        return Agent(
-            config=self.agents_config["security_engineer"],
-            tools=[
+        model = get_security_engineer_model()
+        agent_config = {
+            "config": self.agents_config["security_engineer"],
+            "tools": [
                 # add the SerperDevTool to the agent's tools
                 SerperDevTool(search_url="https://owasp.org",
                               base_url=base_url),
                 ScrapeWebsiteTool() 
-                ],
-            llm="gpt-4o-mini"
-        )
+            ],
+        }
+        if model:
+            agent_config["llm"] = model
+        return Agent(**agent_config)
     
     @agent
     def tech_lead(self) -> Agent:
-        return Agent(
-            config=self.agents_config["tech_lead"],
-            llm="gpt-4o-mini",
-        )
+        model = get_tech_lead_model()
+        agent_config = {
+            "config": self.agents_config["tech_lead"],
+        }
+        if model:
+            agent_config["llm"] = model
+        return Agent(**agent_config)
         
     @task
     def analyze_code_quality(self) -> Task:
@@ -115,11 +130,18 @@ class CodeReviewCrew:
     @crew
     def crew(self) -> Crew:
         """Creates the CodeReviewCrew crew"""
+        from crewai.memory import ShortTermMemory, EntityMemory
+        
         return Crew(
             agents=self.agents,  # Automatically created by the @agent decorator
             tasks=self.tasks,  # Automatically created by the @task decorator
             # set the process to sequential
             process=Process.sequential,
             verbose=True,
-            memory=True,
+            memory=False,
+            # Disabled due to tools[0].name error with instructor+litellm
+            # memory=True,
+            # short_term_memory=ShortTermMemory(),
+            # entity_memory=EntityMemory(),
+            # long_term_memory=None,  
         )
