@@ -1,5 +1,10 @@
 # Agentic Code Review
 
+> [!NOTE]
+> Archived. A learning project from November 2025: a CrewAI flow that reviews a pull request diff with OpenAI models.
+> Not maintained. Known defect: the simple-review path does not pass the diff to the model. Claude Code's built-in
+> `/code-review` covers this use case.
+
 An automated pull request review system powered by CrewAI that analyzes code changes for quality issues and security vulnerabilities, then makes intelligent decisions about whether to approve, request changes, or escalate to human review.
 
 ## Features
